@@ -28,6 +28,7 @@ from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 
 from qgis.core import QgsMapLayerProxyModel
+from qgis.PyQt.QtWidgets import QMessageBox
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -46,3 +47,16 @@ class BuildingDetectorDialog(QtWidgets.QDialog, FORM_CLASS):
         self.setupUi(self)
         
         self.mlcb_raster.setFilters(QgsMapLayerProxyModel.RasterLayer)
+        self.pb_help.clicked.connect(self.pop_message_info)
+        
+    def pop_message_info(self):
+        msg = QMessageBox()
+        msg.setIcon(1)
+        msg.setWindowTitle("Ajuda")
+        
+        msg.setText("A seguir os seguintes tópicos: \n 1. O que é. \n 2. Como funciona.\
+        \n 3. Forma de utilização. \n \nO que é: \nUma integração entre um modelo de aprendizado de máquina em ambiente SIG para a detecção de edificações.\
+        \n \nComo funciona: \nO plugin se responsabiliza por todo o pré-processamento da imagem a ser alimentada ao modelo, inferência e  formatação dos resultados em .shp e .png. Para melhor entendimento do modelo utilizado e seu treinamento referir ao artigo de Girshick, Ross et al. (2014) e ao trabalho de Estevam, André (2020) referentes à arquitetura Mask R-CNN.\
+        \n\nForma de utilização: \nBasta selecionar a imagem a qual deseja ser feito a inferência e a precisão: detecções de probabilidade menor que o threshold serão descartadas. Preenchidos os campos, basta pressionar o botão 'Executar' e utilizar os dados de saída.")
+        
+        show = msg.exec_()
