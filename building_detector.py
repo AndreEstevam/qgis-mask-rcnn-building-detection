@@ -21,15 +21,34 @@
  *                                                                         *
  ***************************************************************************/
 """
+# Qgis imports
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QMessageBox
+
+from qgis.core import QgsApplication
+from qgis import processing
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .building_detector_dialog import BuildingDetectorDialog
+
+# Standart imports
 import os.path
+import numpy as np
+try:
+    import gdal
+except:
+    from osgeo import gdal
+
+# Initialize helper functions from files mask_rcnn_torch_inference.py and my_utils.py
+from .my_utils import load_image_as_np_array, load_raster_as_np_array, save_tensor_as_raster, single_dimension_mask
+from .mask_rcnn_torch_inference import get_model_instance, get_inference
+
+# Defining model's weights path
+plugin_dir_path, _ = os.path.split(os.path.realpath(__file__))
+weights_path = os.path.join(plugin_dir_path, '50_state_dict_5.pth')
 
 
 class BuildingDetector:
@@ -188,6 +207,8 @@ class BuildingDetector:
         if self.first_start == True:
             self.first_start = False
             self.dlg = BuildingDetectorDialog()
+            self.dlg.pb_help.clicked.connect(self.pop_message_info)
+            self.dlg.pb_exe.clicked.connect(self.execute)
 
         # show the dialog
         self.dlg.show()
@@ -195,6 +216,66 @@ class BuildingDetector:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
             pass
+    
+    
+    def pop_message_info(self):
+        '''
+        Show a Help window which contains the following items: What is this plugin, How does it work
+        and How to use it.
+        '''
+        self.dlg.msg = QMessageBox()
+        self.dlg.msg.setIcon(1)
+        self.dlg.msg.setWindowTitle("Ajuda")
+        
+        self.dlg.msg.setText("A seguir os seguintes tópicos: \n 1. O que é. \n 2. Como funciona.\
+        \n 3. Forma de utilização. \n \nO que é: \nUma integração entre um modelo de aprendizado de máquina em ambiente SIG para a detecção de edificações.\
+        \n \nComo funciona: \nO plugin se responsabiliza por todo o pré-processamento da imagem a ser alimentada ao modelo, inferência e  formatação dos resultados em .shp e .png. Para melhor entendimento do modelo utilizado e seu treinamento referir ao artigo de Girshick, Ross et al. (2014) e ao trabalho de Estevam, André (2020) referentes à arquitetura Mask R-CNN.\
+        \n\nForma de utilização: \nBasta selecionar a imagem a qual deseja ser feito a inferência e a precisão: detecções de probabilidade menor que o threshold serão descartadas. Preenchidos os campos, basta pressionar o botão 'Executar' e utilizar os dados de saída.")
+        
+        show = self.dlg.msg.exec_()
+        
+        
+    def execute(self):
+        '''
+        Where everything happens: image loading, model loading, inference, preprocess and, finally, output.
+        '''
+        # getting user's input
+        return_image_file = self.dlg.chb_img_file.isChecked()
+        return_vector_file = self.dlg.chb_vector_file.isChecked()
+        threshold = self.dlg.dsb_threshold.value()
+        output_path = self.dlg.file_explorer.filePath()
+        output_path = os.path.splitext(output_path)[0]      # making sure it has no extension
+        
+        # getting qgis raster object and getting it's location
+        raster_lyr = self.dlg.mlcb_raster.currentLayer()
+        raster_path = raster_lyr.dataProvider().dataSourceUri()
+        
+        # loading raster as a numpy array
+        try:
+            img_np = load_raster_as_np_array(raster_path)/255
+        except:
+            img_np = load_image_as_np_array(raster_path)/255
+        
+        
+        # getting inference
+        mask_tensor, _ = get_inference(weights_path, img_np, threshold)
+        mask_np = mask_tensor.detach().numpy()
+        
+        
+        # saving tensors as image file
+        save_tensor_as_raster(raster_path, mask_tensor, output_path, 0.90)
+            
+        # from raster to vector
+        if return_vector_file:
+            processing.run("gdal:polygonize", {'INPUT': output_path+'.tif', 
+                                                'BAND': 1, 
+                                                'FIELD': 'ID', 
+                                                'OUTPUT': output_path+'.shp'})
+        '''
+        self.dlg.msg = QMessageBox()
+        self.dlg.msg.setIcon(1)
+        self.dlg.msg.setWindowTitle("Execute")
+        self.dlg.msg.setText("Mask type: {}".format(type(mask_img)))
+        show = self.dlg.msg.exec_()
+        '''
