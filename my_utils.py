@@ -2,12 +2,6 @@
 Utility functions.
 
 Most were used to train the model.
-
-NEEDS PADRONIZATION:
-ARRAYS WILL BE img_np OR arr?
-RASTERS WIL BE raster_lyr OR raster?
-EVERYTHING WILL HAVE ITS TYPE (path, np, lyr) BEFORE OR AFTER THE OBJECTS'S NAME?
-THE DESCRIPTION OF EACH FUNCTION!!!
 """
 
 import os
@@ -20,9 +14,10 @@ def load_raster_as_np_array(raster_path):
     '''
     Takes a raster file(TIFF etc.) and returns it as a numpy array.
     Args:
-        raster_path = path to raster file; may be a RGB raster(image) or a single channel raster(mask);
+        raster_path[str] = path to raster file; may be a RGB raster(image) or 
+        a single channel raster(mask);
     Return:
-        img_np = np array representing the raster input;
+        img_np[numpy.array] = np array representing the raster input;
     '''
     raster = gdal.Open(raster_path)
     num_channels = raster.RasterCount
@@ -47,24 +42,26 @@ def load_raster_as_np_array(raster_path):
 
 def load_image_as_np_array(path):
     """
-    Takes path to a local rgb image and returns the image as a numpy array of shape (img_height, img_width, 3) 
-    OR a single channel image returning a numpy array with shape (img_height, img_width, 1).
+    Takes path to a local image file and returns the image as a numpy array . 
     Does not work with raster data (load_raster_as_np_array alternative function).
     Args:
-        - path to image;
+        - path[str] = path to image file;
     Return:
-        - numpy array;
+        - [numpy.array] = np array of of shape (img_height, img_width, 3) OR  
+        (img_height, img_width, 1);
     """
     with open(path, 'rb') as file:
-        PIL_image = Image.open(file)
-        PIL_image_width, PIL_image_height = PIL_image.size
+        PIL_img = Image.open(file)
+        img_width, img_height = PIL_img.size
+        PIL_img_data = PIL_img.getdata()
+        img_np = np.array(PIL_img_data)
         
-        if PIL_image.mode == 'RGB':
-            return np.array(np.reshape(PIL_image.getdata(), (PIL_image_height, PIL_image_width, 3)))
-        elif PIL_image.mode == "L":
-            return np.array(np.reshape(PIL_image.getdata(), (PIL_image_height, PIL_image_width)))
+        if PIL_img.mode == 'RGB':
+            return np.reshape(img_np, (img_height, img_width, 3))
+        elif PIL_img.mode == "L":
+            return np.reshape(img_np, (img_height, img_width))
         else:
-            raise RuntimeError("Failed to load image as numpy array.")
+            raise RuntimeError("load_image_as_np_array failed to load image as numpy array.")
 
 
 def concat_through_first_axis(arr):
@@ -92,8 +89,6 @@ def from_prob_to_id(arr):
     Return:
         - out_arr[numpy.array] = a numpy array with same shape of arr, but with 
         np.unique(out_arr) returning "n" integer values;
-        
-    IS THIS RIGHT? (IS THERE A CLEANER WAY?)
     """
     n = np.shape(arr)[0]
     count = 1
@@ -129,23 +124,22 @@ def single_dimension_mask(arr, threshold):
     return final_arr
 
 
-
-def save_tensor_as_raster(raster_path, tensor, output_path, threshold):
+def save_array_as_raster(raster_path, arr, output_path, threshold):
     '''
     Writes a tensor to disk as a geotiff file;
     Args:
         - raster_path[string] = path of raster which the inference was performed upon;
-        - tensor[torch.Tensor] = a tensor of shape (image height, image width, depth);
+        - arr[numpy.array] = a np array of shape (depth, image height, image width);
         - output_path[string] = full output file path excluding extension (default is
         .tif);
+        - threshold[float] = threshold from which to filter the mask's instances;
     '''
-    # instantiating raster as a gdal object and it's detections mask as numpy array
+    # instantiating raster as a gdal object
     raster_ref = gdal.Open(raster_path)
-    arr = tensor.detach().numpy()
     
     # writing raster to disk
-    width = arr.shape[1]
-    height = arr.shape[2]
+    height = arr.shape[1]
+    width = arr.shape[2]
     driver = gdal.GetDriverByName('GTiff')
     raster_out = driver.Create(output_path+'.tif', width, height, 1, gdal.GDT_Int32)
     
@@ -160,5 +154,3 @@ def save_tensor_as_raster(raster_path, tensor, output_path, threshold):
     band.FlushCache()
 
 
-def save_raster_as_polygon():
-    pass

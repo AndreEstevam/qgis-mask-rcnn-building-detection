@@ -92,7 +92,7 @@
     <rect>
      <x>20</x>
      <y>40</y>
-     <width>361</width>
+     <width>331</width>
      <height>22</height>
     </rect>
    </property>
@@ -142,7 +142,7 @@
   <widget class="QCheckBox" name="chb_vector_file">
    <property name="geometry">
     <rect>
-     <x>210</x>
+     <x>310</x>
      <y>150</y>
      <width>70</width>
      <height>17</height>
@@ -155,20 +155,17 @@
     <bool>true</bool>
    </property>
   </widget>
-  <widget class="QCheckBox" name="chb_img_file">
+  <widget class="QPushButton" name="pb_draw">
    <property name="geometry">
     <rect>
-     <x>310</x>
-     <y>150</y>
-     <width>70</width>
-     <height>17</height>
+     <x>360</x>
+     <y>40</y>
+     <width>31</width>
+     <height>23</height>
     </rect>
    </property>
    <property name="text">
-    <string>Image file</string>
-   </property>
-   <property name="checked">
-    <bool>false</bool>
+    <string>?</string>
    </property>
   </widget>
  </widget>

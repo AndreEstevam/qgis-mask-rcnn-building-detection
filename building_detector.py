@@ -23,10 +23,11 @@
 """
 # Qgis imports
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon, QColor
 from qgis.PyQt.QtWidgets import QAction, QMessageBox
 
-from qgis.core import QgsApplication
+from qgis.core import QgsApplication, QgsWkbTypes
+from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
 from qgis import processing
 
 # Initialize Qt resources from file resources.py
@@ -43,12 +44,23 @@ except:
     from osgeo import gdal
 
 # Initialize helper functions from files mask_rcnn_torch_inference.py and my_utils.py
-from .my_utils import load_image_as_np_array, load_raster_as_np_array, save_tensor_as_raster, single_dimension_mask
+from .my_utils import load_image_as_np_array, load_raster_as_np_array, save_array_as_raster, single_dimension_mask
 from .mask_rcnn_torch_inference import get_model_instance, get_inference
 
-# Defining model's weights path
-plugin_dir_path, _ = os.path.split(os.path.realpath(__file__))
-weights_path = os.path.join(plugin_dir_path, '50_state_dict_5.pth')
+
+# Messages
+info_message = "A seguir os seguintes tópicos: \n 1. O que é. \n 2. Como funciona.\n 3. Forma de utilização.\
+ \n \nO que é: \nUma integração entre um modelo de aprendizado de máquina em ambiente SIG para a detecção \
+ de edificações.\n \nComo funciona: \nO plugin se responsabiliza por todo o pré-processamento da imagem a \
+ ser alimentada ao modelo, inferência e  formatação dos resultados em .shp e .png. Para melhor entendimento\
+ do modelo utilizado e seu treinamento referir ao artigo de Girshick, Ross et al. (2014) e ao trabalho de \
+ Estevam, André (2020) referentes à arquitetura Mask R-CNN.\n\nForma de utilização: \nBasta selecionar a \
+ imagem a qual deseja ser feito a inferência (a imagem deve estar georreferenciada) e a precisão: detecções\
+ de probabilidade menor que o threshold serão descartadas. Preenchidos os campos, basta pressionar o botão \
+ 'Executar' e utilizar os dados de saída."
+ 
+warning_message = "Consider lowering the threshold or feeding an image with better quality (an image sample\
+ which the model was trained upon is located at the plugin's folder)."
 
 
 class BuildingDetector:
@@ -62,10 +74,23 @@ class BuildingDetector:
             application at run time.
         :type iface: QgsInterface
         """
-        # Save reference to the QGIS interface
+        # Save reference to the QGIS interface and canvas
         self.iface = iface
+        self.canvas = self.iface.mapCanvas()
+        
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
+        
+        # Defining model's weights path
+        self.weights_path = os.path.join(self.plugin_dir, '50_state_dict_5.pth')
+        
+        # # Defining polygon drawing tools
+        # self.addPolygonPoint = QgsMapToolEmitPoint(self.canvas)
+        # self.rbPolygon = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
+        # self.rbPolygon.setColor(QColor(255, 0, 0, 0))
+        # self.rbPolygon.setFillColor(QColor(255, 0, 0, 127))
+        # self.rbPolygon.setWidth(3)
+        
         # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
         locale_path = os.path.join(
@@ -176,6 +201,7 @@ class BuildingDetector:
 
         return action
 
+
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
@@ -207,47 +233,81 @@ class BuildingDetector:
         if self.first_start == True:
             self.first_start = False
             self.dlg = BuildingDetectorDialog()
-            self.dlg.pb_help.clicked.connect(self.pop_message_info)
+            self.dlg.pb_help.clicked.connect(self.pop_info_message)
             self.dlg.pb_exe.clicked.connect(self.execute)
+            self.dlg.pb_draw.clicked.connect(self.draw)             # IN DEVELOPMENT
+            
 
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
         result = self.dlg.exec_()
-        # See if OK was pressed
-        if result:
-            pass
     
     
-    def pop_message_info(self):
+    def pop_info_message(self):
         '''
         Show a Help window which contains the following items: What is this plugin, How does it work
         and How to use it.
         '''
-        self.dlg.msg = QMessageBox()
-        self.dlg.msg.setIcon(1)
-        self.dlg.msg.setWindowTitle("Ajuda")
+        self.dlg.msg_info = QMessageBox()
+        self.dlg.msg_info.setIcon(1)
+        self.dlg.msg_info.setWindowTitle("Ajuda")
+        self.dlg.msg_info.setText(info_message)
+        show = self.dlg.msg_info.exec_()
+    
+    
+    def pop_warning_message(self, threshold):
+        self.dlg.msg_warning = QMessageBox()
+        self.dlg.msg_warning.setIcon(2)
+        self.dlg.msg_warning.setWindowTitle("Warning")
+        self.dlg.msg_warning.setText("No detections with probability equal or \
+        grater than {:.2f}. ".format(threshold)+warning_message)
+        show = self.dlg.msg_warning.exec_()
+    
+    
+    def evaluate_polygon(self, point, button):
+        '''
+        Configure rubber band when drawing.
+        '''
+        pass
+        if button==Qt.LeftButton:
+            self.rbPolygon.addPoint(point)
+            self.rbPolygon.show()
+        elif button==Qt.RightButton:
+            polygon = self.rbPolygon.asGeometry()
+            QMessageBox.information(None, "Teste", polygon.asWkt())
+            self.rbPolygon.reset()
+    
+    
+    def draw(self):
+        '''
+        Allows the user to draw a polygon which will be used to delimitate the
+        area of the image to be fed to the model.
+        '''
+        pass
+        # Defining polygon drawing tools
+        addPolygonPoint = QgsMapToolEmitPoint(self.canvas)
+        rbPolygon = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
+        rbPolygon.setColor(QColor(255, 0, 0, 0))
+        rbPolygon.setFillColor(QColor(255, 0, 0, 127))
+        rbPolygon.setWidth(3)
         
-        self.dlg.msg.setText("A seguir os seguintes tópicos: \n 1. O que é. \n 2. Como funciona.\
-        \n 3. Forma de utilização. \n \nO que é: \nUma integração entre um modelo de aprendizado de máquina em ambiente SIG para a detecção de edificações.\
-        \n \nComo funciona: \nO plugin se responsabiliza por todo o pré-processamento da imagem a ser alimentada ao modelo, inferência e  formatação dos resultados em .shp e .png. Para melhor entendimento do modelo utilizado e seu treinamento referir ao artigo de Girshick, Ross et al. (2014) e ao trabalho de Estevam, André (2020) referentes à arquitetura Mask R-CNN.\
-        \n\nForma de utilização: \nBasta selecionar a imagem a qual deseja ser feito a inferência e a precisão: detecções de probabilidade menor que o threshold serão descartadas. Preenchidos os campos, basta pressionar o botão 'Executar' e utilizar os dados de saída.")
+        addPolygonPoint.canvasClicked.connect(self.evaluate_polygon)
         
-        show = self.dlg.msg.exec_()
-        
-        
+        self.canvas.setMapTool(addPolygonPoint)
+    
+    
     def execute(self):
         '''
         Where everything happens: image loading, model loading, inference, preprocess and, finally, output.
         '''
         # getting user's input
-        return_image_file = self.dlg.chb_img_file.isChecked()
         return_vector_file = self.dlg.chb_vector_file.isChecked()
         threshold = self.dlg.dsb_threshold.value()
         output_path = self.dlg.file_explorer.filePath()
         output_path = os.path.splitext(output_path)[0]      # making sure it has no extension
         
-        # getting qgis raster object and getting it's location
+        # getting qgis raster object and it's path
         raster_lyr = self.dlg.mlcb_raster.currentLayer()
         raster_path = raster_lyr.dataProvider().dataSourceUri()
         
@@ -257,14 +317,17 @@ class BuildingDetector:
         except:
             img_np = load_image_as_np_array(raster_path)/255
         
-        
         # getting inference
-        mask_tensor, _ = get_inference(weights_path, img_np, threshold)
+        mask_tensor, _ = get_inference(self.weights_path, img_np, threshold)
         mask_np = mask_tensor.detach().numpy()
         
-        
+        # checking if there was any detection with probability > or = than threshold
+        if len(mask_np.shape)!=3 or mask_np.shape[0]==0:
+            self.pop_warning_message(threshold)
+            return
+
         # saving tensors as image file
-        save_tensor_as_raster(raster_path, mask_tensor, output_path, 0.90)
+        save_array_as_raster(raster_path, mask_np, output_path, 0.90)
             
         # from raster to vector
         if return_vector_file:
@@ -272,10 +335,3 @@ class BuildingDetector:
                                                 'BAND': 1, 
                                                 'FIELD': 'ID', 
                                                 'OUTPUT': output_path+'.shp'})
-        '''
-        self.dlg.msg = QMessageBox()
-        self.dlg.msg.setIcon(1)
-        self.dlg.msg.setWindowTitle("Execute")
-        self.dlg.msg.setText("Mask type: {}".format(type(mask_img)))
-        show = self.dlg.msg.exec_()
-        '''
