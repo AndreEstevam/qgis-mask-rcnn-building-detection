@@ -35,7 +35,7 @@ from .resources import *
 # Import the code for the dialog
 from .building_detector_dialog import BuildingDetectorDialog
 
-# Standart imports
+# Standard imports
 import os.path
 import numpy as np
 try:
@@ -67,13 +67,14 @@ class BuildingDetector:
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
-        """Constructor.
+        '''
+        Constructor.
 
         :param iface: An interface instance that will be passed to this class
             which provides the hook by which you can manipulate the QGIS
             application at run time.
         :type iface: QgsInterface
-        """
+        '''
         # Save reference to the QGIS interface and canvas
         self.iface = iface
         self.canvas = self.iface.mapCanvas()
@@ -113,7 +114,8 @@ class BuildingDetector:
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
-        """Get the translation for a string using Qt translation API.
+        '''
+        Get the translation for a string using Qt translation API.
 
         We implement this ourselves since we do not inherit QObject.
 
@@ -122,7 +124,7 @@ class BuildingDetector:
 
         :returns: Translated version of message.
         :rtype: QString
-        """
+        '''
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('BuildingDetector', message)
 
@@ -138,7 +140,8 @@ class BuildingDetector:
         status_tip=None,
         whats_this=None,
         parent=None):
-        """Add a toolbar icon to the toolbar.
+        '''
+        Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
             path (e.g. ':/plugins/foo/bar.png') or a normal file system path.
@@ -175,7 +178,7 @@ class BuildingDetector:
         :returns: The action that was created. Note that the action is also
             added to self.actions list.
         :rtype: QAction
-        """
+        '''
 
         icon = QIcon(icon_path)
         action = QAction(icon, text, parent)
@@ -203,7 +206,7 @@ class BuildingDetector:
 
 
     def initGui(self):
-        """Create the menu entries and toolbar icons inside the QGIS GUI."""
+        '''Create the menu entries and toolbar icons inside the QGIS GUI.'''
 
         icon_path = ':/plugins/building_detector/icon.png'
         self.add_action(
@@ -217,7 +220,7 @@ class BuildingDetector:
 
 
     def unload(self):
-        """Removes the plugin menu item and icon from QGIS GUI."""
+        '''Removes the plugin menu item and icon from QGIS GUI.'''
         for action in self.actions:
             self.iface.removePluginMenu(
                 self.tr(u'&Building Detector'),
@@ -226,7 +229,7 @@ class BuildingDetector:
 
 
     def run(self):
-        """Run method that performs all the real work"""
+        '''Run method that performs all the real work'''
 
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
@@ -246,8 +249,8 @@ class BuildingDetector:
     
     def pop_info_message(self):
         '''
-        Show a Help window which contains the following items: What is this plugin, How does it work
-        and How to use it.
+        Show a Help window which contains the following items: "What is this 
+        plugin?", "How does it work?" and "How to use it?".
         '''
         self.dlg.msg_info = QMessageBox()
         self.dlg.msg_info.setIcon(1)
@@ -261,15 +264,14 @@ class BuildingDetector:
         self.dlg.msg_warning.setIcon(2)
         self.dlg.msg_warning.setWindowTitle("Warning")
         self.dlg.msg_warning.setText("No detections with probability equal or \
-        grater than {:.2f}. ".format(threshold)+warning_message)
+        greater than {:.2f}. ".format(threshold)+warning_message)
         show = self.dlg.msg_warning.exec_()
     
     
     def evaluate_polygon(self, point, button):
         '''
-        Configure rubber band when drawing.
+        Configure rubberband when drawing.
         '''
-        pass
         if button==Qt.LeftButton:
             self.rbPolygon.addPoint(point)
             self.rbPolygon.show()
@@ -277,6 +279,7 @@ class BuildingDetector:
             polygon = self.rbPolygon.asGeometry()
             QMessageBox.information(None, "Teste", polygon.asWkt())
             self.rbPolygon.reset()
+        pass
     
     
     def draw(self):
@@ -284,7 +287,6 @@ class BuildingDetector:
         Allows the user to draw a polygon which will be used to delimitate the
         area of the image to be fed to the model.
         '''
-        pass
         # Defining polygon drawing tools
         addPolygonPoint = QgsMapToolEmitPoint(self.canvas)
         rbPolygon = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
@@ -295,11 +297,13 @@ class BuildingDetector:
         addPolygonPoint.canvasClicked.connect(self.evaluate_polygon)
         
         self.canvas.setMapTool(addPolygonPoint)
+        pass
     
     
     def execute(self):
         '''
-        Where everything happens: image loading, model loading, inference, preprocess and, finally, output.
+        Where everything happens: image loading, model loading, inference, 
+        preprocess and, finally, output.
         '''
         # getting user's input
         return_vector_file = self.dlg.chb_vector_file.isChecked()
