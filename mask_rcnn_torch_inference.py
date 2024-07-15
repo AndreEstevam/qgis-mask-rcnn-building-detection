@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-'''
-CHECK ALL DESCRIPTIONS
-CLEAN CODE
-'''
-
 # Commented out IPython magic to ensure Python compatibility.
 import sys
 import os
